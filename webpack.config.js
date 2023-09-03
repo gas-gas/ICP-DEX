@@ -1,9 +1,42 @@
-require("dotenv").config();
 const path = require("path");
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
-const CopyPlugin = require("copy-webpack-plugin");
+
+let localEnv = true;
+let network = "local";
+
+function initCanisterEnv() {
+  let localCanisters, prodCanisters;
+
+  try {
+    localCanisters = require(path.resolve(
+      ".dfx",
+      "local",
+      "canister_ids.json"
+    ));
+  } catch (error) {
+    console.log("No local canister_ids.json found. Continuing production");
+  }
+  try {
+    prodCanisters = require(path.resolve("canister_ids.json"));
+    localEnv = false;
+  } catch (error) {
+    console.log("No production canister_ids.json found. Continuing with local");
+  }
+
+  network = process.env.NODE_ENV === "production" && !localEnv ? "ic" : "local";
+
+  const canisterConfig = network === "local" ? localCanisters : prodCanisters;
+
+  return Object.entries(canisterConfig).reduce((prev, current) => {
+    const [canisterName, canisterDetails] = current;
+    prev[canisterName.toUpperCase() + "_CANISTER_ID"] =
+      canisterDetails[network];
+    return prev;
+  }, {});
+}
+const canisterEnvVariables = initCanisterEnv();
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
@@ -44,41 +77,42 @@ module.exports = {
   // webpack configuration. For example, if you are using React
   // modules and CSS as described in the "Adding a stylesheet"
   // tutorial, uncomment the following lines:
-  // module: {
-  //  rules: [
-  //    { test: /\.(ts|tsx|jsx)$/, loader: "ts-loader" },
-  //    { test: /\.css$/, use: ['style-loader','css-loader'] }
-  //  ]
-  // },
+  module: {
+    rules: [
+      {
+        test: /\.(js|jsx)$/,
+        exclude: /node_modules/,
+        use: {
+          loader: "babel-loader",
+          options: {
+            presets: ["@babel/preset-react"],
+          },
+        },
+      },
+      //    { test: /\.(ts|tsx|jsx)$/, loader: "ts-loader" },
+      { test: /\.css$/, use: ["style-loader", "css-loader"] },
+    ],
+  },
+
   plugins: [
     new HtmlWebpackPlugin({
       template: path.join(__dirname, frontend_entry),
       cache: false,
     }),
-    new webpack.EnvironmentPlugin([
-      ...Object.keys(process.env).filter((key) => {
-        if (key.includes("CANISTER")) return true;
-        if (key.includes("DFX")) return true;
-        return false;
-      }),
-    ]),
+    new webpack.EnvironmentPlugin({
+      DFX_NETWORK: network,
+      NODE_ENV: "development",
+      ...canisterEnvVariables,
+    }),
     new webpack.ProvidePlugin({
       Buffer: [require.resolve("buffer/"), "Buffer"],
       process: require.resolve("process/browser"),
-    }),
-    new CopyPlugin({
-      patterns: [
-        {
-          from: `src/${frontendDirectory}/src/.ic-assets.json*`,
-          to: ".ic-assets.json5",
-          noErrorOnMissing: true,
-        },
-      ],
     }),
   ],
   // proxy /api to port 4943 during development.
   // if you edit dfx.json to define a project-specific local network, change the port to match.
   devServer: {
+    historyApiFallback: true,
     proxy: {
       "/api": {
         target: "http://127.0.0.1:4943",

@@ -4,6 +4,23 @@
       "main": "src/icp_basic_dex_backend/main.mo",
       "type": "motoko"
     },
+    "faucet": {
+      "main": "src/faucet/main.mo",
+      "type": "motoko"
+    },
+    "GoldDIP20": {
+      "main": "src/DIP20/motoko/src/token.mo",
+      "type": "motoko"
+    },
+    "SilverDIP20": {
+      "main": "src/DIP20/motoko/src/token.mo",
+      "type": "motoko"
+    },
+    "internet_identity_div": {
+      "type": "custom",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did"
+    },
     "icp_basic_dex_frontend": {
       "dependencies": [
         "icp_basic_dex_backend"
